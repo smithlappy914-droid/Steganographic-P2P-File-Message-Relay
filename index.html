@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ShadowRelay // P2P Steganographic Vault</title>
-  <!-- Tailwind CSS for Responsive UI -->
+  <title>ShadowRelay // Codeword P2P Stego Vault</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- PeerJS for WebRTC P2P Data Channels -->
+  <!-- PeerJS for Serverless WebRTC Data Channels -->
   <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-  <!-- Argon2-Browser for Memory-Hard Key Derivation -->
+  <!-- Argon2-Browser for Memory-Hard Encryption -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js"></script>
   <style>
     :root {
@@ -16,8 +16,6 @@
       --panel-dark: #111b21;
       --panel-header: #202c33;
       --accent-green: #00a884;
-      --bubble-out: #005c4b;
-      --bubble-in: #202c33;
     }
     body {
       background-color: var(--bg-dark);
@@ -25,7 +23,6 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       overflow-x: hidden;
     }
-    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #111b21; }
     ::-webkit-scrollbar-thumb { background: #374045; border-radius: 3px; }
@@ -36,13 +33,13 @@
     }
     .lightbox-backdrop {
       backdrop-filter: blur(12px);
-      background-color: rgba(11, 20, 26, 0.92);
+      background-color: rgba(11, 20, 26, 0.94);
     }
   </style>
 </head>
 <body class="h-screen flex flex-col select-none">
 
-  <!-- TOP NAVIGATION BAR -->
+  <!-- TOP NAVIGATION BAR WITH SECRET CODEWORD AUTO-CONNECT -->
   <header class="bg-[#202c33] border-b border-[#2a3942] px-4 py-3 flex flex-wrap items-center justify-between gap-3 z-20">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center font-bold text-black shadow-lg">
@@ -52,37 +49,37 @@
         <h1 class="font-semibold text-base tracking-wide flex items-center gap-2">
           ShadowRelay
           <span class="text-[10px] bg-[#00a884]/20 text-[#00a884] border border-[#00a884]/40 px-2 py-0.5 rounded-full font-mono">
-            Argon2 + LSB + P2P
+            Codeword P2P + Argon2
           </span>
         </h1>
-        <p id="connStatus" class="text-xs text-gray-400">Initializing P2P Node...</p>
+        <p id="connStatus" class="text-xs text-gray-400">Enter a shared Secret Codeword to auto-connect</p>
       </div>
     </div>
 
-    <!-- P2P Connection Controls -->
+    <!-- Secret Codeword Auto-Connect Box -->
     <div class="flex flex-wrap items-center gap-2 text-xs">
-      <div class="bg-[#111b21] px-3 py-1.5 rounded-lg border border-[#2a3942] flex items-center gap-2">
-        <span class="text-gray-400">My ID:</span>
-        <code id="myPeerId" class="text-[#00a884] font-mono font-bold select-all">...</code>
-        <button onclick="copyMyId()" class="text-gray-300 hover:text-white ml-1" title="Copy ID">📋</button>
-      </div>
-
-      <div class="flex items-center bg-[#111b21] rounded-lg border border-[#2a3942] overflow-hidden">
-        <input id="remotePeerInput" type="text" placeholder="Enter Partner Peer ID" 
-          class="bg-transparent px-3 py-1.5 outline-none text-white w-40 font-mono text-xs" />
-        <button onclick="connectToPeer()" 
-          class="bg-[#00a884] hover:bg-[#029072] text-black font-semibold px-3 py-1.5 transition">
-          Connect P2P
+      <div class="flex items-center bg-[#111b21] rounded-xl border border-[#2a3942] focus-within:border-[#00a884] overflow-hidden shadow-inner">
+        <span class="pl-3 pr-1 text-gray-400">🔑 Codeword:</span>
+        <input id="secretCodewordInput" type="text" placeholder="e.g. shadow-99" 
+          onkeydown="if(event.key==='Enter') joinSecretCodewordRoom()"
+          class="bg-transparent px-2 py-2 outline-none text-[#00a884] w-36 sm:w-44 font-mono font-bold text-xs" />
+        <button id="joinRoomBtn" onclick="joinSecretCodewordRoom()" 
+          class="bg-[#00a884] hover:bg-[#029072] text-black font-bold px-3.5 py-2 transition whitespace-nowrap">
+          ⚡ Auto-Connect
         </button>
       </div>
+
+      <span id="roleBadge" class="hidden bg-[#111b21] border border-[#2a3942] text-gray-300 px-2.5 py-1.5 rounded-lg font-mono text-[11px]">
+        Standby
+      </span>
     </div>
   </header>
 
-  <!-- MAIN WORKSPACE (RESPONSIVE SPLIT VIEW) -->
+  <!-- MAIN WORKSPACE -->
   <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
 
     <!-- LEFT PANEL: STEGANOGRAPHY & CRYPTO STUDIO -->
-    <section class="w-full lg:w-[440px] bg-[#111b21] border-r border-[#2a3942] flex flex-col overflow-y-auto p-4 space-y-4">
+    <section class="w-full lg:w-[430px] bg-[#111b21] border-r border-[#2a3942] flex flex-col overflow-y-auto p-4 space-y-4">
       
       <!-- Mode Switcher -->
       <div class="grid grid-cols-2 bg-[#202c33] p-1 rounded-xl">
@@ -96,14 +93,19 @@
         </button>
       </div>
 
-      <!--SHARED CRYPTO KEY & GEMINI CONFIG -->
+      <!-- SHARED CRYPTO KEY & GEMINI CONFIG -->
       <div class="bg-[#202c33]/70 border border-[#2a3942] rounded-xl p-3 space-y-3">
         <div>
-          <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">
-            Secret Passphrase (Argon2id + AES-256-GCM)
-          </label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-[11px] uppercase tracking-wider text-gray-400">
+              Vault Password (Argon2id + AES-256)
+            </label>
+            <button onclick="syncCodewordToPassword()" class="text-[10px] text-[#00a884] hover:underline">
+              Use Codeword
+            </button>
+          </div>
           <div class="relative">
-            <input id="secretPassphrase" type="password" placeholder="Enter shared secret password..." 
+            <input id="secretPassphrase" type="password" placeholder="Password to lock pixels..." 
               class="w-full bg-[#111b21] border border-[#2a3942] focus:border-[#00a884] rounded-lg px-3 py-2 text-sm outline-none text-white pr-10" />
             <button onclick="togglePassVisibility()" class="absolute right-3 top-2 text-gray-400 hover:text-white text-xs">
               👁️
@@ -114,13 +116,13 @@
         <!-- Optional Gemini API Key for Decoy Cover Text -->
         <details class="text-xs">
           <summary class="cursor-pointer text-[#00a884] hover:underline font-medium">
-            ✨ Gemini AI Decoy Generator (Optional)
+            ✨ Gemini AI Decoy Caption (Optional)
           </summary>
           <div class="mt-2 space-y-2 pt-2 border-t border-[#2a3942]">
             <input id="geminiApiKey" type="password" placeholder="Paste Gemini API Key (AIza...)" 
               class="w-full bg-[#111b21] border border-[#2a3942] rounded-lg px-2.5 py-1.5 text-xs outline-none text-white" />
             <div class="flex gap-2">
-              <input id="geminiTopic" type="text" placeholder="Topic (e.g., Sunset photography, meme)" 
+              <input id="geminiTopic" type="text" placeholder="Topic (e.g., mountain trip, gaming setup)" 
                 class="flex-1 bg-[#111b21] border border-[#2a3942] rounded-lg px-2.5 py-1.5 text-xs outline-none text-white" />
               <button onclick="generateDecoyCaption()" id="geminiBtn"
                 class="bg-[#00a884]/20 border border-[#00a884] text-[#00a884] px-3 py-1.5 rounded-lg hover:bg-[#00a884] hover:text-black transition font-semibold whitespace-nowrap">
@@ -135,27 +137,27 @@
       <div id="encodePanel" class="space-y-4">
         <!-- Step 1: Cover Image -->
         <div>
-          <label class="block text-xs text-gray-300 font-medium mb-1">1. Select Cover Image (Carrier)</label>
+          <label class="block text-xs text-gray-300 font-medium mb-1">1. Select Normal Cover Photo</label>
           <input id="coverImageInput" type="file" accept="image/png, image/jpeg, image/webp" onchange="handleCoverImage(event)"
             class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#202c33] file:text-[#00a884] hover:file:bg-[#2a3942] cursor-pointer" />
           <div class="flex items-center justify-between mt-1.5">
-            <span id="capacityInfo" class="text-[11px] text-gray-400">Max capacity: Select an image or generate synthetic cover</span>
+            <span id="capacityInfo" class="text-[11px] text-gray-400">Ready with default cover</span>
             <button onclick="generateSyntheticCover()" class="text-[11px] text-[#00a884] hover:underline">
-              + Generate Noise Cover
+              + New Artwork Cover
             </button>
           </div>
         </div>
 
-        <!-- Step 2: Secret Payload (Text or File) -->
+        <!-- Step 2: Secret Payload -->
         <div>
-          <label class="block text-xs text-gray-300 font-medium mb-1">2. Secret Payload (Hidden inside pixels)</label>
-          <textarea id="secretMessageInput" rows="3" placeholder="Type confidential message, code, or coordinates..."
+          <label class="block text-xs text-gray-300 font-medium mb-1">2. Secret Message / File (Hidden in Pixels)</label>
+          <textarea id="secretMessageInput" rows="3" placeholder="Write secret message, password, or notes here..."
             class="w-full bg-[#202c33] border border-[#2a3942] focus:border-[#00a884] rounded-xl p-3 text-sm outline-none text-white resize-none"></textarea>
           
           <div class="mt-2 flex items-center justify-between bg-[#202c33] px-3 py-2 rounded-lg border border-[#2a3942]">
-            <span id="secretFileLabel" class="text-xs text-gray-400 truncate max-w-[200px]">Or attach secret file (small zip/txt/pdf)</span>
+            <span id="secretFileLabel" class="text-xs text-gray-400 truncate max-w-[200px]">Or hide a small file inside photo</span>
             <label class="text-xs bg-[#111b21] hover:bg-[#2a3942] text-[#00a884] px-2.5 py-1 rounded cursor-pointer border border-[#2a3942]">
-              Browse File
+              Attach File
               <input id="secretFileInput" type="file" class="hidden" onchange="handleSecretFile(event)" />
             </label>
           </div>
@@ -163,8 +165,8 @@
 
         <!-- Step 3: Public Decoy Caption -->
         <div>
-          <label class="block text-xs text-gray-300 font-medium mb-1">3. Public Decoy Caption (Visible to everyone)</label>
-          <input id="publicCaptionInput" type="text" placeholder="Normal looking caption (e.g., Check out this wallpaper!)"
+          <label class="block text-xs text-gray-300 font-medium mb-1">3. Public Caption (Visible on Chat)</label>
+          <input id="publicCaptionInput" type="text" placeholder="e.g., Aaj ka मौसम mast hai! 📸"
             class="w-full bg-[#202c33] border border-[#2a3942] focus:border-[#00a884] rounded-lg px-3 py-2 text-xs outline-none text-white" />
         </div>
 
@@ -176,7 +178,7 @@
           </button>
           <button onclick="processAndSendStego(true)" 
             class="bg-[#00a884] hover:bg-[#029072] text-black font-bold py-2.5 px-4 rounded-xl text-xs shadow-lg transition">
-            🚀 Relay via P2P
+            🚀 Send to Friend
           </button>
         </div>
       </div>
@@ -184,7 +186,7 @@
       <!-- MANUAL DECODE PANEL -->
       <div id="decodePanel" class="hidden space-y-4">
         <div class="p-3 bg-[#202c33] rounded-xl border border-[#2a3942] space-y-3">
-          <label class="block text-xs text-gray-300 font-medium">Upload Stego PNG Image from Disk</label>
+          <label class="block text-xs text-gray-300 font-medium">Upload Stego PNG Image from Device</label>
           <input id="decodeImageInput" type="file" accept="image/png"
             class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#111b21] file:text-[#00a884] cursor-pointer" />
           <button onclick="decodeFromUploadedFile()" 
@@ -193,10 +195,9 @@
           </button>
         </div>
 
-        <!-- Decoded Output Box -->
         <div id="manualDecodeOutput" class="hidden bg-[#0b141a] border border-[#00a884] rounded-xl p-3 space-y-2">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-mono uppercase text-[#00a884]">Decrypted Secret Payload:</span>
+            <span class="text-[11px] font-mono uppercase text-[#00a884]">Unlocked Secret Data:</span>
             <button onclick="copyDecodedText('manualDecodedText')" class="text-xs text-gray-400 hover:text-white">Copy</button>
           </div>
           <pre id="manualDecodedText" class="text-xs text-gray-200 whitespace-pre-wrap break-all font-mono max-h-48 overflow-y-auto"></pre>
@@ -207,23 +208,22 @@
       <!-- SYSTEM TELEMETRY LOG -->
       <div class="mt-auto pt-3 border-t border-[#2a3942]">
         <div class="text-[11px] font-mono text-gray-400 flex items-center justify-between mb-1">
-          <span>CRYPTO / LSB ENGINE STATUS</span>
-          <span id="kdfBadge" class="text-[#00a884]">READY</span>
+          <span>SYSTEM TELEMETRY</span>
+          <span id="kdfBadge" class="text-[#00a884]">ARGON2 READY</span>
         </div>
         <div id="systemLog" class="bg-[#0b141a] border border-[#2a3942] rounded-lg p-2.5 text-[11px] font-mono text-gray-400 h-24 overflow-y-auto space-y-1">
-          <div>[SYS] ShadowRelay initialized. Zero-server storage active.</div>
+          <div>[SYS] Enter the same Codeword on two devices to auto-connect.</div>
         </div>
       </div>
     </section>
 
-    <!-- RIGHT PANEL: P2P REAL-TIME STREAM (WHATSAPP/TELEGRAM INSPIRED) -->
+    <!-- RIGHT PANEL: P2P REAL-TIME STREAM -->
     <section class="flex-1 flex flex-col chat-bg relative">
-      <!-- Stream Feed -->
       <div id="messageStream" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
-        <!-- Welcome Banner -->
-        <div class="max-w-md mx-auto bg-[#182229] border border-[#2a3942] rounded-xl p-4 text-center shadow-md my-4">
-          <p class="text-xs text-[#ffd279] leading-relaxed">
-            🔒 <strong>End-to-End Steganographic Relay:</strong> Images sent here carry AES-256-GCM + Argon2 encrypted payloads inside their pixel LSBs. Click any image to open the full-screen inspector and unlock hidden data.
+        <div class="max-w-md mx-auto bg-[#182229] border border-[#2a3942] rounded-xl p-4 text-center shadow-md my-4 space-y-1">
+          <p class="text-xs text-[#00a884] font-semibold">🔑 Zero-ID Secret Codeword Relay</p>
+          <p class="text-[11px] text-gray-300 leading-relaxed">
+            Dono dost upar <strong>Codeword</strong> box mein same secret word (jaise <code>bhai-99</code>) daal kar <strong>Auto-Connect</strong> dabayein. Bina koi ID ya number share kiye aap seedha connect ho jayenge!
           </p>
         </div>
       </div>
@@ -231,32 +231,29 @@
 
   </main>
 
-  <!-- FULL-SCREEN PHOTO VIEWER & STEGO INSPECTOR (WHATSAPP/TELEGRAM LIGHTBOX) -->
+  <!-- FULL-SCREEN PHOTO VIEWER & STEGO INSPECTOR -->
   <div id="lightboxModal" class="fixed inset-0 z-50 hidden lightbox-backdrop flex flex-col justify-between p-4">
-    <!-- Top Bar -->
     <div class="flex items-center justify-between bg-[#202c33]/90 px-4 py-3 rounded-xl border border-[#2a3942]">
       <div class="flex items-center gap-3">
-        <span class="text-sm font-semibold text-white">Stego Media Inspector</span>
+        <span class="text-sm font-semibold text-white">Full-Screen Stego Inspector</span>
         <span id="lightboxMeta" class="text-xs text-gray-400 font-mono"></span>
       </div>
       <div class="flex items-center gap-3">
         <a id="lightboxDownload" href="#" download="stego_carrier.png" 
           class="bg-[#2a3942] hover:bg-[#374045] text-white text-xs px-3 py-1.5 rounded-lg transition">
-          ⬇️ Save Lossless PNG
+          ⬇️ Save PNG
         </a>
         <button onclick="closeLightbox()" class="text-gray-300 hover:text-white text-xl font-bold px-2">✕</button>
       </div>
     </div>
 
-    <!-- Center Image Canvas Preview -->
     <div class="flex-1 flex items-center justify-center overflow-hidden my-4">
       <img id="lightboxImg" src="" alt="Carrier Preview" class="max-h-full max-w-full object-contain rounded-lg shadow-2xl border border-[#2a3942]" />
     </div>
 
-    <!-- Bottom Unlock Drawer -->
     <div class="max-w-2xl w-full mx-auto bg-[#202c33] border border-[#2a3942] rounded-2xl p-4 shadow-2xl space-y-3">
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <input id="lightboxPassphrase" type="password" placeholder="Enter Argon2 Passphrase to unlock pixels..." 
+        <input id="lightboxPassphrase" type="password" placeholder="Enter Vault Password to unlock hidden message..." 
           class="flex-1 bg-[#111b21] border border-[#2a3942] focus:border-[#00a884] rounded-xl px-3.5 py-2 text-sm outline-none text-white" />
         <button onclick="unlockLightboxImage()" 
           class="bg-[#00a884] hover:bg-[#029072] text-black font-bold px-5 py-2 rounded-xl text-xs transition whitespace-nowrap">
@@ -264,7 +261,6 @@
         </button>
       </div>
 
-      <!-- Lightbox Decrypted Result -->
       <div id="lightboxResultBox" class="hidden bg-[#0b141a] border border-[#00a884] rounded-xl p-3 space-y-2">
         <div class="flex items-center justify-between">
           <span class="text-[11px] font-mono text-[#00a884] uppercase">Decrypted Secret Message:</span>
@@ -276,17 +272,18 @@
     </div>
   </div>
 
-  <!-- Offscreen Working Canvas for Lossless Pixel Manipulation -->
+  <!-- Offscreen Canvas for Lossless LSB Manipulation -->
   <canvas id="stegoCanvas" class="hidden"></canvas>
 
   <script>
     /********************************************************************
-     * 1. GLOBAL STATE & TELEMETRY LOGGER
+     * 1. STATE & LOGGING
      ********************************************************************/
     let peer = null;
     let activeConn = null;
+    let reconnectTimer = null;
     let loadedCoverImage = null;
-    let attachedSecretFile = null; // { name, type, base64 }
+    let attachedSecretFile = null;
     const MAGIC_SIGNATURE = new Uint8Array([0x53, 0x52, 0x56, 0x31]); // "SRV1"
 
     function logEvent(msg, isError = false) {
@@ -316,67 +313,142 @@
       input.type = input.type === 'password' ? 'text' : 'password';
     }
 
-    /********************************************************************
-     * 2. WEBRTC P2P ENGINE (PEERJS)
-     ********************************************************************/
-    function initPeerNode() {
-      const randomShortId = 'sr-' + Math.random().toString(36).substring(2, 8);
-      peer = new Peer(randomShortId);
+    function syncCodewordToPassword() {
+      const cw = document.getElementById('secretCodewordInput').value.trim();
+      if (!cw) return alert('Pehle upar Codeword box mein kuch likhein!');
+      document.getElementById('secretPassphrase').value = cw;
+      logEvent('Synced Codeword as Vault Password.');
+    }
 
-      peer.on('open', (id) => {
-        document.getElementById('myPeerId').textContent = id;
-        document.getElementById('connStatus').textContent = 'Online • Waiting for P2P Link';
-        logEvent(`P2P Node initialized with ID: ${id}`);
+    /********************************************************************
+     * 2. SECRET CODEWORD AUTO-CONNECT ENGINE (SHA-256 HOST/GUEST)
+     ********************************************************************/
+    async function hashCodewordToIds(codeword) {
+      const normalized = codeword.trim().toLowerCase();
+      const rawBytes = new TextEncoder().encode('shadowrelay-v2-room:' + normalized);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', rawBytes);
+      const hex = Array.from(new Uint8Array(hashBuffer))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+        .substring(0, 16);
+      return {
+        hostId: `sr-${hex}-host`,
+        guestId: `sr-${hex}-guest`
+      };
+    }
+
+    async function joinSecretCodewordRoom() {
+      const codeword = document.getElementById('secretCodewordInput').value.trim();
+      if (!codeword) return alert('Bhai pehle ek Secret Codeword dalo (jaise: shadow-99)');
+
+      // Auto-fill vault password if empty for convenience
+      const passInput = document.getElementById('secretPassphrase');
+      if (!passInput.value) passInput.value = codeword;
+
+      if (reconnectTimer) clearInterval(reconnectTimer);
+      if (peer) {
+        try { peer.destroy(); } catch (e) {}
+      }
+
+      const { hostId, guestId } = await hashCodewordToIds(codeword);
+      const statusEl = document.getElementById('connStatus');
+      const roleBadge = document.getElementById('roleBadge');
+      roleBadge.classList.remove('hidden');
+
+      logEvent(`Deriving SHA-256 room from codeword "${codeword}"...`);
+      statusEl.innerHTML = `<span class="text-yellow-400">⏳ Searching for friend on codeword "${codeword}"...</span>`;
+
+      // Step 1: Try claiming Host slot
+      peer = new Peer(hostId);
+
+      peer.on('open', () => {
+        roleBadge.textContent = 'Node: HOST';
+        logEvent('Joined room as HOST. Waiting for friend to enter same codeword...');
+        statusEl.innerHTML = `<span class="text-yellow-400">🟡 Waiting for friend to enter codeword "${codeword}"...</span>`;
+
+        // Also ping Guest in case Guest was already online
+        const tryGuest = peer.connect(guestId, { reliable: true });
+        setupConnectionHandlers(tryGuest, codeword);
       });
 
       peer.on('connection', (conn) => {
-        setupConnectionHandlers(conn);
+        setupConnectionHandlers(conn, codeword);
       });
 
       peer.on('error', (err) => {
-        logEvent(`P2P Warning: ${err.type}`, true);
+        // If Host slot is already taken by friend, automatically become Guest!
+        if (err.type === 'unavailable-id') {
+          logEvent('Friend is already waiting as HOST! Switching to GUEST mode...');
+          connectAsGuestNode(hostId, guestId, codeword);
+        } else if (err.type !== 'peer-unavailable') {
+          logEvent(`P2P Notice: ${err.type}`, true);
+        }
       });
     }
 
-    function connectToPeer() {
-      const targetId = document.getElementById('remotePeerInput').value.trim();
-      if (!targetId) return alert('Enter your partner Peer ID first!');
-      logEvent(`Dialing peer: ${targetId}...`);
-      const conn = peer.connect(targetId, { reliable: true });
-      setupConnectionHandlers(conn);
+    function connectAsGuestNode(hostId, guestId, codeword) {
+      try { peer.destroy(); } catch (e) {}
+      peer = new Peer(guestId);
+
+      const roleBadge = document.getElementById('roleBadge');
+      const statusEl = document.getElementById('connStatus');
+
+      peer.on('open', () => {
+        roleBadge.textContent = 'Node: GUEST';
+        logEvent('Joined as GUEST. Linking with friend...');
+
+        const attemptDial = () => {
+          if (activeConn && activeConn.open) {
+            clearInterval(reconnectTimer);
+            return;
+          }
+          const conn = peer.connect(hostId, { reliable: true });
+          setupConnectionHandlers(conn, codeword);
+        };
+
+        attemptDial();
+        reconnectTimer = setInterval(attemptDial, 3000);
+      });
+
+      peer.on('connection', (conn) => {
+        setupConnectionHandlers(conn, codeword);
+      });
+
+      peer.on('error', (err) => {
+        if (err.type !== 'peer-unavailable') {
+          logEvent(`Guest Node Alert: ${err.type}`, true);
+        }
+      });
     }
 
-    function setupConnectionHandlers(conn) {
-      activeConn = conn;
+    function setupConnectionHandlers(conn, codeword) {
       conn.on('open', () => {
-        document.getElementById('connStatus').innerHTML = `<span class="text-[#00a884]">● Connected P2P with ${conn.peer}</span>`;
-        logEvent(`Direct WebRTC DataChannel established with ${conn.peer}`);
+        activeConn = conn;
+        if (reconnectTimer) clearInterval(reconnectTimer);
+        document.getElementById('connStatus').innerHTML = 
+          `<span class="text-[#00a884] font-semibold">🟢 Connected P2P on Codeword "${codeword}"</span>`;
+        logEvent(`Encrypted P2P tunnel established on codeword "${codeword}"!`);
       });
 
       conn.on('data', (payload) => {
         if (payload && payload.type === 'STEGO_IMAGE') {
-          logEvent(`Received Stego Carrier (${Math.round(payload.imageDataUrl.length / 1024)} KB) from ${conn.peer}`);
+          logEvent(`Received Stego Photo (${Math.round(payload.imageDataUrl.length / 1024)} KB) from friend!`);
           renderChatBubble({
-            sender: conn.peer,
+            sender: 'Friend',
             isSelf: false,
             imageDataUrl: payload.imageDataUrl,
-            caption: payload.caption || 'Shared an image',
+            caption: payload.caption || 'Shared a photo',
             timestamp: payload.timestamp
           });
         }
       });
 
       conn.on('close', () => {
-        document.getElementById('connStatus').textContent = 'Peer disconnected';
-        logEvent('P2P connection closed.', true);
+        document.getElementById('connStatus').innerHTML = 
+          `<span class="text-red-400">🔴 Friend disconnected from "${codeword}"</span>`;
+        logEvent('Friend left the P2P room.', true);
         activeConn = null;
       });
-    }
-
-    function copyMyId() {
-      const id = document.getElementById('myPeerId').textContent;
-      navigator.clipboard.writeText(id);
-      logEvent('Copied Peer ID to clipboard.');
     }
 
     /********************************************************************
@@ -384,26 +456,24 @@
      ********************************************************************/
     async function deriveKey256(passphrase, saltBytes) {
       const badge = document.getElementById('kdfBadge');
-      // Try Argon2id WASM first
       if (window.argon2 && typeof window.argon2.hash === 'function') {
         try {
-          badge.textContent = 'ARGON2ID WASM';
+          badge.textContent = 'ARGON2ID ACTIVE';
           const res = await window.argon2.hash({
             pass: passphrase,
             salt: saltBytes,
             time: 2,
-            mem: 16384, // 16 MB memory-hard
+            mem: 16384,
             hashLen: 32,
             parallelism: 1,
             type: window.argon2.ArgonType.Argon2id
           });
           return await crypto.subtle.importKey('raw', res.hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
         } catch (err) {
-          logEvent('Argon2 WASM fallback to PBKDF2-SHA256 triggered.');
+          logEvent('Using WebCrypto PBKDF2-SHA256 fallback.');
         }
       }
 
-      // Fallback: High-iteration WebCrypto PBKDF2-SHA256 (310,000 iterations)
       badge.textContent = 'PBKDF2-310K';
       const enc = new TextEncoder();
       const baseKey = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
@@ -425,8 +495,6 @@
       const cipherBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, jsonBytes);
       const cipherBytes = new Uint8Array(cipherBuffer);
 
-      // Binary Packet Layout:
-      // [4B Magic "SRV1"] + [16B Salt] + [12B IV] + [4B CipherLength UInt32BE] + [CipherBytes]
       const totalLen = 4 + 16 + 12 + 4 + cipherBytes.length;
       const packet = new Uint8Array(totalLen);
       let offset = 0;
@@ -436,7 +504,7 @@
       packet.set(iv, offset); offset += 12;
 
       const lenView = new DataView(packet.buffer, offset, 4);
-      lenView.setUint32(0, cipherBytes.length, false); // Big-Endian
+      lenView.setUint32(0, cipherBytes.length, false);
       offset += 4;
 
       packet.set(cipherBytes, offset);
@@ -444,10 +512,9 @@
     }
 
     async function decryptPayloadBytes(packetBytes, passphrase) {
-      // Verify Magic Header "SRV1"
       for (let i = 0; i < 4; i++) {
         if (packetBytes[i] !== MAGIC_SIGNATURE[i]) {
-          throw new Error('No ShadowRelay steganographic signature found in this image.');
+          throw new Error('Is photo mein koi ShadowRelay secret data nahi hai.');
         }
       }
 
@@ -457,7 +524,7 @@
       const cipherLen = lenView.getUint32(0, false);
 
       if (cipherLen <= 0 || 36 + cipherLen > packetBytes.length) {
-        throw new Error('Corrupted steganographic header length.');
+        throw new Error('Corrupted pixel data.');
       }
 
       const cipherBytes = packetBytes.slice(36, 36 + cipherLen);
@@ -468,12 +535,12 @@
         const jsonStr = new TextDecoder().decode(plainBuffer);
         return JSON.parse(jsonStr);
       } catch (e) {
-        throw new Error('Decryption failed! Invalid Argon2 passphrase or tampered pixels.');
+        throw new Error('Galat Password! Argon2 decryption failed.');
       }
     }
 
     /********************************************************************
-     * 4. LSB (LEAST SIGNIFICANT BIT) PIXEL STEGANOGRAPHY ENGINE
+     * 4. LSB PIXEL STEGANOGRAPHY ENGINE
      ********************************************************************/
     function embedPacketIntoCanvas(imgElement, packetBytes) {
       const canvas = document.getElementById('stegoCanvas');
@@ -483,34 +550,30 @@
       ctx.drawImage(imgElement, 0, 0);
 
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pixels = imgData.data; // RGBA array
+      const pixels = imgData.data;
 
       const totalBitsNeeded = packetBytes.length * 8;
-      const availableChannels = (pixels.length / 4) * 3; // 3 RGB channels per pixel (Alpha untouched)
+      const availableChannels = (pixels.length / 4) * 3;
 
       if (totalBitsNeeded > availableChannels) {
-        throw new Error(`Payload too large! Need ${Math.ceil(totalBitsNeeded / 8)} bytes, but image holds max ${Math.floor(availableChannels / 8)} bytes.`);
+        throw new Error(`File badi hai! Badi cover photo choose karein.`);
       }
 
       let bitIdx = 0;
       for (let i = 0; i < pixels.length && bitIdx < totalBitsNeeded; i++) {
-        // Skip Alpha channel (every 4th byte: i % 4 === 3)
         if (i % 4 === 3) continue;
 
         const bytePos = Math.floor(bitIdx / 8);
         const bitOffset = 7 - (bitIdx % 8);
         const bitVal = (packetBytes[bytePos] >> bitOffset) & 1;
 
-        // Force Alpha channel of pixel to 255 to prevent browser premultiplied alpha corruption
         pixels[i - (i % 4) + 3] = 255;
-
-        // Clear LSB and set bitVal
         pixels[i] = (pixels[i] & 0xFE) | bitVal;
         bitIdx++;
       }
 
       ctx.putImageData(imgData, 0, 0);
-      return canvas.toDataURL('image/png'); // Lossless PNG required for LSB
+      return canvas.toDataURL('image/png');
     }
 
     function extractPacketFromImageElement(imgElement) {
@@ -522,14 +585,13 @@
 
       const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
 
-      // Helper to read N bytes starting from channel index
       function readBytesFromChannels(numBytes) {
         const out = new Uint8Array(numBytes);
         let bitIdx = 0;
         const totalBits = numBytes * 8;
 
         for (let i = 0; i < pixels.length && bitIdx < totalBits; i++) {
-          if (i % 4 === 3) continue; // Skip Alpha
+          if (i % 4 === 3) continue;
           const bit = pixels[i] & 1;
           const bytePos = Math.floor(bitIdx / 8);
           const bitOffset = 7 - (bitIdx % 8);
@@ -539,11 +601,10 @@
         return out;
       }
 
-      // First read 36-byte header to check magic and get exact cipher length
       const header = readBytesFromChannels(36);
       for (let i = 0; i < 4; i++) {
         if (header[i] !== MAGIC_SIGNATURE[i]) {
-          throw new Error('No hidden ShadowRelay payload detected in this image.');
+          throw new Error('Is photo ke pixels mein koi hidden message nahi mila.');
         }
       }
 
@@ -552,14 +613,14 @@
       const maxBytes = Math.floor(((pixels.length / 4) * 3) / 8);
 
       if (cipherLen <= 0 || 36 + cipherLen > maxBytes) {
-        throw new Error('Invalid payload length inside image pixels.');
+        throw new Error('Invalid stego payload length.');
       }
 
       return readBytesFromChannels(36 + cipherLen);
     }
 
     /********************************************************************
-     * 5. COVER IMAGE, SYNTHETIC GENERATOR & FILE HANDLERS
+     * 5. COVER IMAGE & SECRET FILE HANDLERS
      ********************************************************************/
     function handleCoverImage(event) {
       const file = event.target.files[0];
@@ -571,8 +632,8 @@
           loadedCoverImage = img;
           const maxBytes = Math.floor(((img.width * img.height * 3) / 8) - 64);
           document.getElementById('capacityInfo').textContent = 
-            `Carrier: ${img.width}x${img.height}px • Max Hidden Capacity: ~${(maxBytes / 1024).toFixed(1)} KB`;
-          logEvent(`Loaded cover image (${img.width}x${img.height}px).`);
+            `Photo: ${img.width}x${img.height}px • Max Capacity: ~${(maxBytes / 1024).toFixed(1)} KB`;
+          logEvent(`Loaded cover photo (${img.width}x${img.height}px).`);
         };
         img.src = e.target.result;
       };
@@ -585,7 +646,6 @@
       canvas.height = 500;
       const ctx = canvas.getContext('2d');
 
-      // Create cyber gradient + geometric pattern
       const grad = ctx.createLinearGradient(0, 0, 800, 500);
       grad.addColorStop(0, '#0f2027');
       grad.addColorStop(0.5, '#203a43');
@@ -593,10 +653,10 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 800, 500);
 
-      for (let i = 0; i < 120; i++) {
+      for (let i = 0; i < 100; i++) {
         ctx.fillStyle = `rgba(0, 168, 132, ${Math.random() * 0.25})`;
         ctx.beginPath();
-        ctx.arc(Math.random() * 800, Math.random() * 500, Math.random() * 60 + 5, 0, Math.PI * 2);
+        ctx.arc(Math.random() * 800, Math.random() * 500, Math.random() * 55 + 5, 0, Math.PI * 2);
         ctx.fill();
       }
 
@@ -605,8 +665,7 @@
         loadedCoverImage = img;
         const maxBytes = Math.floor(((img.width * img.height * 3) / 8) - 64);
         document.getElementById('capacityInfo').textContent = 
-          `Synthetic Cover: 800x500px • Max Capacity: ~${(maxBytes / 1024).toFixed(1)} KB`;
-        logEvent('Generated 800x500 synthetic carrier image.');
+          `Artwork Cover: 800x500px • Max Capacity: ~${(maxBytes / 1024).toFixed(1)} KB`;
       };
       img.src = canvas.toDataURL('image/png');
     }
@@ -628,12 +687,12 @@
     }
 
     /********************************************************************
-     * 6. GEMINI API DECOY CAPTION GENERATOR
+     * 6. GEMINI AI DECOY CAPTION GENERATOR
      ********************************************************************/
     async function generateDecoyCaption() {
       const apiKey = document.getElementById('geminiApiKey').value.trim();
-      const topic = document.getElementById('geminiTopic').value.trim() || 'casual photography';
-      if (!apiKey) return alert('Paste your Gemini API Key first!');
+      const topic = document.getElementById('geminiTopic').value.trim() || 'casual photo';
+      if (!apiKey) return alert('Pehle Gemini API Key paste karein!');
 
       const btn = document.getElementById('geminiBtn');
       btn.textContent = '...';
@@ -644,7 +703,7 @@
           body: JSON.stringify({
             contents: [{
               parts: [{
-                text: `Write a single short, casual, realistic social media chat message (max 15 words) sharing a photo about "${topic}". Do not use hashtags or quotes.`
+                text: `Write a single short, casual Hinglish chat caption (max 12 words) sharing a photo about "${topic}". No quotes or hashtags.`
               }]
             }]
           })
@@ -653,19 +712,17 @@
         const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
         if (text) {
           document.getElementById('publicCaptionInput').value = text;
-          logEvent('Gemini generated decoy cover caption.');
-        } else {
-          throw new Error(data?.error?.message || 'Empty response');
+          logEvent('Gemini generated decoy caption.');
         }
       } catch (e) {
-        logEvent(`Gemini API Error: ${e.message}`, true);
+        logEvent(`Gemini Error: ${e.message}`, true);
       } finally {
         btn.textContent = 'Auto-Caption';
       }
     }
 
     /********************************************************************
-     * 7. WORKFLOW: ENCODE, SEND P2P & DECODE
+     * 7. ENCODE, RELAY & LIGHTBOX UNLOCK
      ********************************************************************/
     async function processAndSendStego(sendOverP2P) {
       try {
@@ -674,14 +731,20 @@
           await new Promise(r => setTimeout(r, 100));
         }
 
-        const passphrase = document.getElementById('secretPassphrase').value;
+        let passphrase = document.getElementById('secretPassphrase').value;
+        const codeword = document.getElementById('secretCodewordInput').value.trim();
+        if (!passphrase && codeword) {
+          passphrase = codeword;
+          document.getElementById('secretPassphrase').value = codeword;
+        }
+
         const secretText = document.getElementById('secretMessageInput').value.trim();
-        const caption = document.getElementById('publicCaptionInput').value.trim() || 'Check out this shot 📸';
+        const caption = document.getElementById('publicCaptionInput').value.trim() || 'Yeh dekho bhai 📸';
 
-        if (!passphrase) return alert('Please enter a Secret Passphrase for Argon2 encryption!');
-        if (!secretText && !attachedSecretFile) return alert('Enter a secret message or attach a secret file!');
+        if (!passphrase) return alert('Vault Password (ya Codeword) daalna zaroori hai!');
+        if (!secretText && !attachedSecretFile) return alert('Koi secret message likho ya file attach karo!');
 
-        logEvent('Encrypting payload with Argon2id + AES-256-GCM...');
+        logEvent('Locking with Argon2id + AES-256-GCM...');
         const payloadObj = {
           text: secretText,
           file: attachedSecretFile,
@@ -689,10 +752,8 @@
         };
 
         const encryptedPacket = await encryptPayloadBytes(payloadObj, passphrase);
-        logEvent(`Encrypted packet size: ${encryptedPacket.length} bytes. Embedding into RGB LSBs...`);
-
         const stegoDataUrl = embedPacketIntoCanvas(loadedCoverImage, encryptedPacket);
-        logEvent('LSB Steganography complete! Zero visual distortion.');
+        logEvent(`Hidden ${encryptedPacket.length} encrypted bytes inside image pixels.`);
 
         if (sendOverP2P) {
           if (activeConn && activeConn.open) {
@@ -702,9 +763,9 @@
               caption: caption,
               timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
-            logEvent(`Relayed stego image over P2P to ${activeConn.peer}`);
+            logEvent('Sent Stego Photo directly to friend!');
           } else {
-            logEvent('No active remote peer—rendered to local stream for testing.');
+            logEvent('Friend abhi connected nahi hai — preview chat mein dikhaya gaya hai.');
           }
 
           renderChatBubble({
@@ -717,9 +778,9 @@
         } else {
           const a = document.createElement('a');
           a.href = stegoDataUrl;
-          a.download = `shadow_carrier_${Date.now()}.png`;
+          a.download = `shadow_photo_${Date.now()}.png`;
           a.click();
-          logEvent('Downloaded lossless Stego PNG to device.');
+          logEvent('Downloaded lossless Stego PNG.');
         }
       } catch (err) {
         logEvent(err.message, true);
@@ -740,13 +801,13 @@
       bubble.innerHTML = `
         <div class="text-[10px] font-semibold text-[#00a884] px-1 mb-1 flex justify-between">
           <span>${sender}</span>
-          <span class="text-gray-300 font-mono">LSB-STEGO</span>
+          <span class="text-gray-300 font-mono">STEGO-PNG</span>
         </div>
         <div class="relative group cursor-pointer overflow-hidden rounded-xl bg-black" onclick="openLightbox('${imageDataUrl}')">
           <img src="${imageDataUrl}" class="w-full max-h-64 object-cover group-hover:scale-105 transition duration-200" />
           <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
             <span class="bg-black/80 text-[#00a884] text-xs font-semibold px-3 py-1.5 rounded-full border border-[#00a884]">
-              🔍 Inspect & Unlock
+              🔍 Click to Unlock Secret
             </span>
           </div>
         </div>
@@ -761,17 +822,13 @@
       stream.scrollTop = stream.scrollHeight;
     }
 
-    /********************************************************************
-     * 8. FULL-SCREEN LIGHTBOX & EXTRACTION ENGINE
-     ********************************************************************/
     function openLightbox(dataUrl) {
       const modal = document.getElementById('lightboxModal');
       const img = document.getElementById('lightboxImg');
       const dl = document.getElementById('lightboxDownload');
       document.getElementById('lightboxResultBox').classList.add('hidden');
 
-      // Pre-fill passphrase if already typed in left panel
-      const mainPass = document.getElementById('secretPassphrase').value;
+      const mainPass = document.getElementById('secretPassphrase').value || document.getElementById('secretCodewordInput').value.trim();
       if (mainPass) document.getElementById('lightboxPassphrase').value = mainPass;
 
       img.onload = () => {
@@ -789,15 +846,14 @@
     async function unlockLightboxImage() {
       const img = document.getElementById('lightboxImg');
       const pass = document.getElementById('lightboxPassphrase').value;
-      if (!pass) return alert('Enter the Argon2 passphrase to unlock!');
+      if (!pass) return alert('Vault Password dalo!');
 
       try {
-        logEvent('Extracting LSB bits from lightbox image...');
         const packet = extractPacketFromImageElement(img);
         const decrypted = await decryptPayloadBytes(packet, pass);
 
         document.getElementById('lightboxResultBox').classList.remove('hidden');
-        document.getElementById('lightboxDecodedText').textContent = decrypted.text || '(No text message — file attached below)';
+        document.getElementById('lightboxDecodedText').textContent = decrypted.text || '(File attached below)';
 
         const fileBox = document.getElementById('lightboxFileDownload');
         if (decrypted.file) {
@@ -805,24 +861,24 @@
           fileBox.innerHTML = `
             <a href="data:${decrypted.file.type};base64,${decrypted.file.base64}" download="${decrypted.file.name}"
               class="inline-flex items-center gap-2 bg-[#00a884] text-black font-bold px-3 py-1.5 rounded-lg text-xs">
-              📎 Download Hidden File: ${decrypted.file.name}
+              📎 Download Secret File: ${decrypted.file.name}
             </a>
           `;
         } else {
           fileBox.classList.add('hidden');
         }
-        logEvent('Successfully decrypted hidden payload!');
+        logEvent('Unlocked hidden payload from image!');
       } catch (err) {
         logEvent(err.message, true);
         alert(err.message);
       }
     }
 
-    async function decodeFromUploadedFile() {
+    function decodeFromUploadedFile() {
       const fileInput = document.getElementById('decodeImageInput');
-      const pass = document.getElementById('secretPassphrase').value;
-      if (!fileInput.files[0]) return alert('Select a Stego PNG image first!');
-      if (!pass) return alert('Enter the Secret Passphrase in the top box first!');
+      const pass = document.getElementById('secretPassphrase').value || document.getElementById('secretCodewordInput').value.trim();
+      if (!fileInput.files[0]) return alert('Pehle PNG photo select karo!');
+      if (!pass) return alert('Vault Password ya Codeword dalo!');
 
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -832,7 +888,7 @@
             const packet = extractPacketFromImageElement(img);
             const decrypted = await decryptPayloadBytes(packet, pass);
             document.getElementById('manualDecodeOutput').classList.remove('hidden');
-            document.getElementById('manualDecodedText').textContent = decrypted.text || '(File payload)';
+            document.getElementById('manualDecodedText').textContent = decrypted.text || '(File attached)';
 
             const fileContainer = document.getElementById('manualDecodedFileContainer');
             if (decrypted.file) {
@@ -840,15 +896,13 @@
               fileContainer.innerHTML = `
                 <a href="data:${decrypted.file.type};base64,${decrypted.file.base64}" download="${decrypted.file.name}"
                   class="inline-block bg-[#00a884] text-black font-bold px-3 py-1.5 rounded-lg text-xs">
-                  📎 Download Attached File: ${decrypted.file.name}
+                  📎 Download File: ${decrypted.file.name}
                 </a>
               `;
             } else {
               fileContainer.classList.add('hidden');
             }
-            logEvent('Decoded uploaded PNG file successfully!');
           } catch (err) {
-            logEvent(err.message, true);
             alert(err.message);
           }
         };
@@ -860,13 +914,16 @@
     function copyDecodedText(elemId) {
       const text = document.getElementById(elemId).textContent;
       navigator.clipboard.writeText(text);
-      logEvent('Copied decrypted payload to clipboard.');
+      logEvent('Copied secret text.');
     }
 
-    // Boot Node & Default Synthetic Carrier on Load
     window.addEventListener('DOMContentLoaded', () => {
-      initPeerNode();
       generateSyntheticCover();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('code')) {
+        document.getElementById('secretCodewordInput').value = params.get('code');
+        joinSecretCodewordRoom();
+      }
     });
   </script>
 </body>
